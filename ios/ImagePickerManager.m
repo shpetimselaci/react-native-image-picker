@@ -186,11 +186,16 @@ RCT_EXPORT_METHOD(showImagePicker:(NSDictionary *)options callback:(RCTResponseS
     if ([[self.options objectForKey:@"allowsEditing"] boolValue]) {
         self.picker.allowsEditing = true;
     }
+    if ([[self.options objectForKey:@"exportOriginal"] boolValue]) {
+        if (@available(iOS 11.0, *)) {
+            self.picker.videoExportPreset = AVAssetExportPresetPassthrough;
+        }
+    }
     self.picker.modalPresentationStyle = UIModalPresentationCurrentContext;
     self.picker.delegate = self;
 
     // Check permissions
-    void (^showPickerViewController)() = ^void() {
+    void (^showPickerViewController)(void) = ^void() {
         dispatch_async(dispatch_get_main_queue(), ^{
             UIViewController *root = RCTPresentedViewController();
             [root presentViewController:self.picker animated:YES completion:nil];

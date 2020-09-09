@@ -26,6 +26,7 @@ const DEFAULT_OPTIONS: ImagePickerOptions = {
     okTitle: "I'm sure",
   },
   tintColor: '',
+  exportOriginal: false,
 };
 
 type Callback = (response: ImagePickerResponse) => void;
