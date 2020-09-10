@@ -182,15 +182,17 @@ RCT_EXPORT_METHOD(showImagePicker:(NSDictionary *)options callback:(RCTResponseS
     } else {
         self.picker.mediaTypes = @[(NSString *)kUTTypeImage];
     }
-
-    if ([[self.options objectForKey:@"allowsEditing"] boolValue]) {
-        self.picker.allowsEditing = true;
-    }
-    if ([[self.options objectForKey:@"exportOriginal"] boolValue]) {
+    
+    if ([[self.options objectForKey:@"exportOriginal"] boolValue]){
         if (@available(iOS 11.0, *)) {
             self.picker.videoExportPreset = AVAssetExportPresetPassthrough;
         }
     }
+
+    if ([[self.options objectForKey:@"allowsEditing"] boolValue]) {
+        self.picker.allowsEditing = true;
+    }
+    
     self.picker.modalPresentationStyle = UIModalPresentationCurrentContext;
     self.picker.delegate = self;
 
@@ -464,6 +466,20 @@ RCT_EXPORT_METHOD(showImagePicker:(NSDictionary *)options callback:(RCTResponseS
                     self.response[@"timestamp"] = [[ImagePickerManager ISO8601DateFormatter] stringFromDate:pickedAsset.creationDate];
                 }
             }
+            
+            if ([[self.options objectForKey:@"exportOriginal"] boolValue]) {
+                PHFetchResult *refResult = [PHAsset fetchAssetsWithALAssetURLs:@[videoRefURL] options:nil];
+                PHVideoRequestOptions *videoRequestOptions = [[PHVideoRequestOptions alloc] init];
+                videoRequestOptions.version = PHVideoRequestOptionsVersionOriginal;
+                [[PHImageManager defaultManager] requestAVAssetForVideo:[refResult firstObject] options:videoRequestOptions resultHandler:^(AVAsset *asset, AVAudioMix *audioMix, NSDictionary *info) {
+                    if ([asset isKindOfClass:[AVURLAsset class]]) {
+                        NSURL *originURL = [(AVURLAsset *)asset URL];
+                        self.response[@"fileName"] = originURL.lastPathComponent;
+                        [self.response setObject:originURL.absoluteString forKey:@"uri"];
+                        [self invokeCallback:true];
+                    }
+                }];
+            }
 
             if ([videoURL.URLByResolvingSymlinksInPath.path isEqualToString:videoDestinationURL.URLByResolvingSymlinksInPath.path] == NO) {
                 NSFileManager *fileManager = [NSFileManager defaultManager];
@@ -534,11 +550,10 @@ RCT_EXPORT_METHOD(showImagePicker:(NSDictionary *)options callback:(RCTResponseS
                 [[storageOptions objectForKey:@"cameraRoll"] boolValue] == NO ||
                 self.picker.sourceType != UIImagePickerControllerSourceTypeCamera)
             {
-                self.callback(@[self.response]);
+                [self invokeCallback:false];
             }
-        }
-        else {
-            self.callback(@[self.response]);
+        }else {
+            [self invokeCallback:false];
         }
     };
 
@@ -557,6 +572,16 @@ RCT_EXPORT_METHOD(showImagePicker:(NSDictionary *)options callback:(RCTResponseS
 }
 
 #pragma mark - Helpers
+
+- (void)invokeCallback:(BOOL)force {
+    if (force) {
+        self.callback(@[self.response]);
+        return;
+    }
+    if (![[self.options objectForKey:@"exportOriginal"] boolValue]){
+        self.callback(@[self.response]);
+    }
+}
 
 - (void)checkCameraPermissions:(void(^)(BOOL granted))callback
 {
